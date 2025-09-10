@@ -124,3 +124,18 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* design tokens / helpers */
+:root {
+  --radius: 12px;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+/* use on headings to switch to Playfair */
+.h-serif {
+  font-family: var(--font-serif);
+  letter-spacing: 0.015em;
+}
