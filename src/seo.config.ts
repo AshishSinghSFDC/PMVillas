@@ -8,7 +8,7 @@ export const defaultSEO: DefaultSeoProps = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://pm-estates.example",
+    url: "https://pm-estates.example", // replace later
     siteName: "PM Estates",
   },
   twitter: { cardType: "summary_large_image" },
