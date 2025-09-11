@@ -79,12 +79,14 @@ function formatPrice(p: Property) {
   return "Price on request";
 }
 
+// ✅ Next.js 15: params can be a Promise — await it
 export async function generateMetadata({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const p = await fetchProperty(params.slug);
+  const { slug } = await params;
+  const p = await fetchProperty(slug);
   if (!p) return {};
   const title = p.seoTitle || `${p.title} — PM Villas`;
   const description =
@@ -107,12 +109,14 @@ export async function generateMetadata({
   };
 }
 
+// ✅ Next.js 15: params can be a Promise — await it
 export default async function PropertyDetailPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
-  const p = await fetchProperty(params.slug);
+  const { slug } = await params;
+  const p = await fetchProperty(slug);
   if (!p) notFound();
 
   const heroUrl = p.heroImage
