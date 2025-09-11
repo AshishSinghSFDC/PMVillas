@@ -1,4 +1,3 @@
-// src/app/properties/page.tsx
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import PropertyCard from "@/components/property-card";
@@ -62,6 +61,7 @@ export default async function PropertiesPage() {
             {items.map((p) => (
               <PropertyCard
                 key={p._id}
+                slug={p.slug}
                 title={p.title}
                 location={[p.city, p.country].filter(Boolean).join(", ")}
                 price={formatPrice(p)}
