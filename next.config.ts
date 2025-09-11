@@ -9,5 +9,7 @@ const nextConfig = {
       },
     ],
   },
+  // optional: unblock CI even if lint fails (keep ON only if needed)
+  // eslint: { ignoreDuringBuilds: true },
 };
 export default nextConfig;

@@ -1,3 +1,4 @@
+// src/app/properties/page.tsx
 import SiteHeader from "@/components/site-header";
 import SiteFooter from "@/components/site-footer";
 import PropertyCard from "@/components/property-card";
@@ -46,6 +47,7 @@ function formatPrice(p: Property) {
 
 export default async function PropertiesPage() {
   const items = await getProperties();
+  const hasItems = items && items.length > 0;
 
   return (
     <>
@@ -54,25 +56,34 @@ export default async function PropertiesPage() {
         <h1 className="h-serif text-3xl md:text-4xl mb-8">
           Featured Properties
         </h1>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((p) => (
-            <PropertyCard
-              key={p._id}
-              title={p.title}
-              location={[p.city, p.country].filter(Boolean).join(", ")}
-              price={formatPrice(p)}
-              image={
-                p.heroImage
-                  ? urlFor(p.heroImage)
-                      .width(1200)
-                      .height(900)
-                      .fit("crop")
-                      .url()
-                  : "/placeholder.jpg"
-              }
-            />
-          ))}
-        </div>
+
+        {hasItems ? (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {items.map((p) => (
+              <PropertyCard
+                key={p._id}
+                title={p.title}
+                location={[p.city, p.country].filter(Boolean).join(", ")}
+                price={formatPrice(p)}
+                image={
+                  p.heroImage
+                    ? urlFor(p.heroImage)
+                        .width(1200)
+                        .height(900)
+                        .fit("crop")
+                        .url()
+                    : "/placeholder.jpg"
+                }
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border bg-white/60 p-6 text-sm opacity-80">
+            No properties published yet. Add one in{" "}
+            <span className="font-medium">/studio</span> and publish to see it
+            here.
+          </div>
+        )}
       </main>
       <SiteFooter />
     </>
