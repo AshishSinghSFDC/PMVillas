@@ -3,6 +3,11 @@
 import { PortableText, type PortableTextComponents } from "@portabletext/react";
 import type { PortableTextBlock } from "sanity";
 
+type LinkValue = {
+  href?: string;
+  blank?: boolean;
+};
+
 const components: PortableTextComponents = {
   block: {
     h2: ({ children }) => (
@@ -17,10 +22,11 @@ const components: PortableTextComponents = {
   },
   marks: {
     link: ({ value, children }) => {
-      const target = (value as any)?.blank ? "_blank" : undefined;
+      const v = value as LinkValue;
+      const target = v.blank ? "_blank" : undefined;
       return (
         <a
-          href={(value as any)?.href}
+          href={v.href}
           target={target}
           rel={target ? "noopener noreferrer" : undefined}
           className="text-gold underline"

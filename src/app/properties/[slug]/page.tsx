@@ -14,6 +14,8 @@ import type { SanityImageSource } from "@sanity/image-url/lib/types/types";
 import type { PortableTextBlock } from "sanity";
 import { Badge } from "@/components/ui/badge";
 
+type SanityAssetRef = { _ref: string; _type: "reference" };
+
 type Property = {
   _id: string;
   title: string;
@@ -26,7 +28,7 @@ type Property = {
   gallery?: SanityImageSource[];
   videoUrl?: string | null;
   tourUrl?: string | null;
-  floorplans?: { asset?: any }[];
+  floorplans?: Array<{ asset?: SanityAssetRef }>;
   currency?: string;
   price?: number;
   displayPrice?: string;
@@ -122,6 +124,7 @@ export default async function PropertyDetailPage({
     <>
       <SiteHeader />
 
+      {/* Hero */}
       <section className="relative aspect-[16/9] w-full">
         <Image
           src={heroUrl}
@@ -156,8 +159,11 @@ export default async function PropertyDetailPage({
         </div>
       </section>
 
+      {/* Main */}
       <main className="container py-10 grid gap-10 lg:grid-cols-3">
+        {/* Left: description + gallery */}
         <div className="lg:col-span-2 space-y-8">
+          {/* Quick facts */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <Fact label="Price" value={formatPrice(p)} />
             <Fact label="Beds" value={p.bedrooms ?? "-"} />
@@ -168,6 +174,7 @@ export default async function PropertyDetailPage({
             />
           </div>
 
+          {/* Description */}
           {p.description && (
             <section>
               <h2 className="h-serif text-2xl mb-3">About this property</h2>
@@ -175,6 +182,7 @@ export default async function PropertyDetailPage({
             </section>
           )}
 
+          {/* Gallery */}
           {p.gallery && p.gallery.length > 0 && (
             <section>
               <h2 className="h-serif text-2xl mb-3">Gallery</h2>
@@ -182,6 +190,7 @@ export default async function PropertyDetailPage({
             </section>
           )}
 
+          {/* Map */}
           {(p.mapUrl || p.location) && (
             <section>
               <h2 className="h-serif text-2xl mb-3">Location</h2>
@@ -207,6 +216,7 @@ export default async function PropertyDetailPage({
           )}
         </div>
 
+        {/* Right: specs + contact form */}
         <aside className="lg:col-span-1 space-y-8">
           <section className="rounded-2xl border p-5 bg-white/60">
             <h3 className="h-serif text-xl mb-4">Key Details</h3>

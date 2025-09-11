@@ -16,15 +16,23 @@ export async function POST(req: Request) {
     const body = await req.json();
     const data = ContactSchema.parse(body);
 
-    // TODO: integrate email provider (Resend, SendGrid) or CRM webhook here
+    // TODO: wire up an email/CRM provider here (Resend/SendGrid/Webhook)
     console.log("[Lead]", {
       at: new Date().toISOString(),
       ...data,
     });
 
     return NextResponse.json({ ok: true });
-  } catch (err: any) {
-    const msg = err?.message || "Invalid request";
-    return NextResponse.json({ ok: false, error: msg }, { status: 400 });
+  } catch (err: unknown) {
+    let errorMessage = "Invalid request";
+    if (err instanceof z.ZodError) {
+      errorMessage = err.issues.map((i) => i.message).join(", ");
+    } else if (err instanceof Error) {
+      errorMessage = err.message;
+    }
+    return NextResponse.json(
+      { ok: false, error: errorMessage },
+      { status: 400 }
+    );
   }
 }
