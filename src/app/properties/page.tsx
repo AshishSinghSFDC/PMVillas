@@ -4,7 +4,8 @@ import PropertyCard from "@/components/property-card";
 import { sanityClient } from "@/sanity/client";
 import { PROPERTIES_QUERY } from "@/sanity/queries";
 import { urlFor } from "@/sanity/image";
-import { unstable_cache, revalidateTag } from "next/cache";
+import { unstable_cache } from "next/cache";
+import type { SanityImageSource } from "@sanity/image-url/lib/types/types";
 
 type Property = {
   _id: string;
@@ -16,7 +17,7 @@ type Property = {
   displayPrice?: string;
   city?: string;
   country?: string;
-  heroImage?: any;
+  heroImage?: SanityImageSource;
 };
 
 const getProperties = unstable_cache(
@@ -30,10 +31,17 @@ const getProperties = unstable_cache(
 function formatPrice(p: Property) {
   if (p.displayPrice) return p.displayPrice;
   if (typeof p.price === "number") {
-    const symbol = p.currency === "INR" ? "₹" : p.currency === "USD" ? "$" : "";
+    const symbol =
+      p.currency === "INR"
+        ? "₹"
+        : p.currency === "USD"
+          ? "$"
+          : p.currency === "MXN"
+            ? "MX$"
+            : "";
     return `${symbol}${p.price.toLocaleString()}`;
   }
-  return "";
+  return "Price on request";
 }
 
 export default async function PropertiesPage() {
@@ -52,7 +60,7 @@ export default async function PropertiesPage() {
               key={p._id}
               title={p.title}
               location={[p.city, p.country].filter(Boolean).join(", ")}
-              price={formatPrice(p) || "Price on request"}
+              price={formatPrice(p)}
               image={
                 p.heroImage
                   ? urlFor(p.heroImage)
