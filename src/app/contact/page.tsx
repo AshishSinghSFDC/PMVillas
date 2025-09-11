@@ -7,7 +7,7 @@ export default function ContactPage() {
       <SiteHeader />
       <main className="container py-12">
         <h1 className="h-serif text-3xl md:text-4xl">Contact</h1>
-        <p className="mt-4 opacity-80">Lead form coming soon..</p>
+        <p className="mt-4 opacity-80">Lead form coming soon...</p>
       </main>
       <SiteFooter />
     </>
