@@ -1,6 +1,7 @@
 "use client";
 
 import { PortableText, type PortableTextComponents } from "@portabletext/react";
+import type { PortableTextBlock } from "sanity";
 
 const components: PortableTextComponents = {
   block: {
@@ -16,10 +17,10 @@ const components: PortableTextComponents = {
   },
   marks: {
     link: ({ value, children }) => {
-      const target = value?.blank ? "_blank" : undefined;
+      const target = (value as any)?.blank ? "_blank" : undefined;
       return (
         <a
-          href={value?.href}
+          href={(value as any)?.href}
           target={target}
           rel={target ? "noopener noreferrer" : undefined}
           className="text-gold underline"
@@ -31,7 +32,7 @@ const components: PortableTextComponents = {
   },
 };
 
-export default function RichText({ value }: { value: any }) {
-  if (!value) return null;
+export default function RichText({ value }: { value?: PortableTextBlock[] }) {
+  if (!value || value.length === 0) return null;
   return <PortableText value={value} components={components} />;
 }
