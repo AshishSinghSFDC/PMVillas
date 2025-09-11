@@ -53,14 +53,14 @@ type Property = {
   seoImage?: SanityImageSource;
 };
 
+// cache + tag per slug so webhook can surgically refresh this page
 async function fetchProperty(slug: string): Promise<Property | null> {
   const get = unstable_cache(
-    async (s: string) =>
-      sanityClient.fetch(PROPERTY_BY_SLUG_QUERY, { slug: s }),
+    async () => sanityClient.fetch(PROPERTY_BY_SLUG_QUERY, { slug }),
     ["property", slug],
-    { tags: ["properties"] }
+    { tags: ["properties", `property:${slug}`] }
   );
-  return get(slug);
+  return get();
 }
 
 function formatPrice(p: Property) {
@@ -79,7 +79,7 @@ function formatPrice(p: Property) {
   return "Price on request";
 }
 
-// ✅ Next.js 15: params can be a Promise — await it
+// Next 15: params can be a Promise—await it
 export async function generateMetadata({
   params,
 }: {
@@ -109,7 +109,6 @@ export async function generateMetadata({
   };
 }
 
-// ✅ Next.js 15: params can be a Promise — await it
 export default async function PropertyDetailPage({
   params,
 }: {

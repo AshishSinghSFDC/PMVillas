@@ -1,56 +1,65 @@
 import type { NextRequest } from "next/server";
 import { revalidateTag } from "next/cache";
 
-// Optional: ensure Node.js runtime (fine to omit)
-// export const runtime = "nodejs"
+export const runtime = "nodejs";
 
 function isAuthorized(req: NextRequest) {
   const expected = process.env.REVALIDATE_SECRET;
   const provided = req.nextUrl.searchParams.get("secret") || "";
-  if (!expected) return false;
-  return provided === expected;
+  return Boolean(expected && provided && provided === expected);
+}
+
+function ok(payload: Record<string, unknown>) {
+  return Response.json({ revalidated: true, ...payload, now: Date.now() });
+}
+function unauthorized() {
+  return new Response("Unauthorized", { status: 401 });
 }
 
 /**
- * Manual trigger from a browser tab:
- * https://YOUR-DOMAIN/api/revalidate?secret=YOUR_SECRET
- * We accept GET purely for convenience when testing.
+ * Manual browser test:
+ *   GET /api/revalidate?secret=...&slug=optional-slug
+ * Accepts GET for convenience only.
  */
 export async function GET(req: NextRequest) {
-  if (!isAuthorized(req)) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+  const authorized = isAuthorized(req);
+  if (!authorized) return unauthorized();
 
-  // Revalidate the properties listing
+  const slug = req.nextUrl.searchParams.get("slug") || undefined;
+  // Always refresh the listings grid
   revalidateTag("properties");
+  // If a slug is provided, also refresh that property page
+  if (slug) revalidateTag(`property:${slug}`);
 
-  return Response.json({
-    revalidated: true,
-    method: "GET",
-    tag: "properties",
-    now: Date.now(),
-  });
+  return ok({ method: "GET", tag: "properties", slug: slug || null });
 }
 
 /**
- * Webhook trigger from Sanity (recommended)
- * Set the webhook to POST to:
- * https://YOUR-DOMAIN/api/revalidate?secret=YOUR_SECRET
+ * Webhook from Sanity (recommended)
+ * Configure:
+ *  - Method: POST
+ *  - URL: https://YOUR-DOMAIN/api/revalidate?secret=YOUR_SECRET
+ *  - Filter: _type == "property"
+ *  - Projection: {"slug": slug.current}
  */
 export async function POST(req: NextRequest) {
-  if (!isAuthorized(req)) {
-    return new Response("Unauthorized", { status: 401 });
+  const authorized = isAuthorized(req);
+  if (!authorized) return unauthorized();
+
+  let slug: string | undefined;
+  try {
+    const body = await req.json();
+    // Prefer explicit projection { "slug": slug.current }
+    slug = body?.slug;
+    // Fallbacks for other webhook formats:
+    if (!slug) slug = body?.document?.slug?.current;
+    if (!slug) slug = body?.slug?.current;
+  } catch {
+    // no body → still fine; we’ll at least refresh the list
   }
 
-  // If you want, you can parse the webhook body to revalidate more tags.
-  // const body = await req.json().catch(() => null)
-
   revalidateTag("properties");
+  if (slug) revalidateTag(`property:${slug}`);
 
-  return Response.json({
-    revalidated: true,
-    method: "POST",
-    tag: "properties",
-    now: Date.now(),
-  });
+  return ok({ method: "POST", tag: "properties", slug: slug || null });
 }
