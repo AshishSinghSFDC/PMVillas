@@ -1,17 +1,11 @@
 import { defineField, defineType } from "sanity";
-import {
-  House,
-  MapPin,
-  Image as ImageIcon,
-  Settings2,
-  Globe,
-} from "lucide-react"; // icons show in Studio if using icon prop
+import { House, MapPin, Image as ImageIcon, Globe } from "lucide-react"; // icons show in Studio if using icon prop
 
 export default defineType({
   name: "property",
   title: "Property",
   type: "document",
-  icon: House as any,
+  icon: House,
   groups: [
     { name: "overview", title: "Overview", default: true },
     { name: "media", title: "Media" },
@@ -91,7 +85,7 @@ export default defineType({
       title: "Hero Image",
       type: "imageWithAlt",
       group: "media",
-      icon: ImageIcon as any,
+      icon: ImageIcon,
       validation: (r) => r.required(),
     }),
     defineField({
@@ -266,14 +260,14 @@ export default defineType({
       title: "Country",
       type: "string",
       group: "location",
-      icon: Globe as any,
+      icon: Globe,
     }),
     defineField({
       name: "location",
       title: "Map (Lat/Lng)",
       type: "geopoint",
       group: "location",
-      icon: MapPin as any,
+      icon: MapPin,
     }),
     defineField({
       name: "mapUrl",
