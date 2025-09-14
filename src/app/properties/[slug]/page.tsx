@@ -13,36 +13,73 @@ import { toImageSrc } from "../../../sanity/lib/image";
 
 export const revalidate = 60;
 
-type RouteParams = Promise<{ slug: string }>;
+/**
+ * Helper: best-effort location label
+ * - Prefer explicit locationLabel
+ * - Fallback to short lat,lng if GeoPoint present
+ * - Fallback to plain string location
+ */
+function getLocationLabel(p: Property): string | undefined {
+  if (p.locationLabel && typeof p.locationLabel === "string") {
+    return p.locationLabel;
+  }
+  const loc = p.location as any;
+  if (
+    loc &&
+    typeof loc === "object" &&
+    typeof loc.lat === "number" &&
+    typeof loc.lng === "number"
+  ) {
+    const lat = Number.isFinite(loc.lat) ? loc.lat.toFixed(3) : undefined;
+    const lng = Number.isFinite(loc.lng) ? loc.lng.toFixed(3) : undefined;
+    if (lat && lng) return `${lat}, ${lng}`;
+  }
+  if (typeof p.location === "string") return p.location;
+  return undefined;
+}
+
+/* ----------------------------- Static params ----------------------------- */
 
 export async function generateStaticParams() {
-  const slugs: Array<{ slug: string }> =
-    await sanityClient.fetch(PROPERTY_SLUGS_QUERY);
+  const slugs = await sanityClient.fetch<{ slug: string }[]>(
+    PROPERTY_SLUGS_QUERY,
+    {},
+    { next: { revalidate } }
+  );
   return slugs.map((s) => ({ slug: s.slug }));
 }
 
+/* ----------------------------- Metadata (SEO) ---------------------------- */
+
+type RouteParams = Promise<{ slug: string }>;
+
 export async function generateMetadata({ params }: { params: RouteParams }) {
   const { slug } = await params;
+
   const prop = await sanityClient.fetch<Property>(
     PROPERTY_BY_SLUG_QUERY,
     { slug },
     { next: { revalidate } }
   );
   if (!prop) return {};
+
   const title = `${prop.title} | ${formatPrice(prop.price, prop.currency)}`;
   const description =
-    prop.seo?.description ||
-    (typeof prop.description === "string" ? prop.description : prop.tagline) ||
+    (prop as any)?.seo?.description ||
+    (typeof (prop as any)?.description === "string"
+      ? (prop as any).description
+      : (prop as any)?.tagline) ||
     prop.title;
-  const ogImage = toImageSrc(prop.heroImage, 1200, 630);
+
+  const ogImage = toImageSrc((prop as any)?.heroImage, 1200, 630);
+
   return {
     title,
     description,
     openGraph: {
       title,
       description,
-      images: ogImage ? [{ url: ogImage }] : [],
-      type: "article",
+      images: ogImage ? [ogImage] : [],
     },
     twitter: {
       card: "summary_large_image",
@@ -53,47 +90,66 @@ export async function generateMetadata({ params }: { params: RouteParams }) {
   };
 }
 
+/* --------------------------------- Page --------------------------------- */
+
 export default async function PropertyDetailPage({
   params,
 }: {
   params: RouteParams;
 }) {
   const { slug } = await params;
+
   const prop = await sanityClient.fetch<Property>(
     PROPERTY_BY_SLUG_QUERY,
     { slug },
     { next: { revalidate, tags: ["properties", `property:${slug}`] } }
   );
+
   if (!prop) return notFound();
 
-  const hero = toImageSrc(prop.heroImage, 1920, 1080);
-  const highlights: string[] = prop.highlights ?? [];
+  const hero = toImageSrc((prop as any)?.heroImage, 1920, 1080);
+  const highlights: string[] = (prop as any)?.highlights ?? [];
+  const locationText = getLocationLabel(prop);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 md:py-12">
+      {/* Header section */}
       <div className="mb-8 flex flex-col gap-4 md:mb-10 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
             {prop.title}
           </h1>
-          <p className="mt-2 text-sm text-zinc-600">{prop.tagline}</p>
+          {(prop as any)?.tagline ? (
+            <p className="mt-2 text-sm text-zinc-600">
+              {(prop as any).tagline}
+            </p>
+          ) : null}
+
           <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-zinc-700">
-            <span className="rounded-full bg-zinc-100 px-3 py-1">
-              {prop.status}
-            </span>
-            <span className="rounded-full bg-zinc-100 px-3 py-1">
-              {prop.bedrooms ? `${prop.bedrooms} bd` : ""}
-              {prop.bedrooms && prop.bathrooms ? " • " : ""}
-              {prop.bathrooms ? `${prop.bathrooms} ba` : ""}
-            </span>
+            {(prop as any)?.status ? (
+              <span className="rounded-full bg-zinc-100 px-3 py-1">
+                {(prop as any).status}
+              </span>
+            ) : null}
+
+            {(prop.bedrooms || prop.bathrooms) && (
+              <span className="rounded-full bg-zinc-100 px-3 py-1">
+                {prop.bedrooms ? `${prop.bedrooms} bd` : ""}
+                {prop.bedrooms && prop.bathrooms ? " • " : ""}
+                {prop.bathrooms ? `${prop.bathrooms} ba` : ""}
+              </span>
+            )}
+
             {prop.areaSqFt ? (
               <span className="rounded-full bg-zinc-100 px-3 py-1">
                 {formatAreaSqFt(prop.areaSqFt)}
               </span>
             ) : null}
-            {prop.location?.area ? (
+
+            {/* Location chip (robust across string/GeoPoint) */}
+            {locationText ? (
               <span className="rounded-full bg-zinc-100 px-3 py-1">
-                📍 {prop.location.area}
+                📍 {locationText}
               </span>
             ) : null}
           </div>
@@ -101,67 +157,55 @@ export default async function PropertyDetailPage({
 
         <div className="text-right">
           <div className="text-2xl font-semibold text-zinc-900 md:text-3xl">
-            {formatPrice(prop.price, prop.currency)}
+            {formatPrice(prop.price, (prop as any)?.currency)}
           </div>
           <a
             href="/contact"
-            className="mt-3 inline-block rounded-xl border border-zinc-200 bg-black px-5 py-2 text-sm font-medium text-white transition hover:opacity-90"
+            className="mt-3 inline-block rounded-xl border border-zinc-200 bg-black px-4 py-2 text-sm font-medium text-white transition hover:opacity-90"
           >
             Request details
           </a>
         </div>
       </div>
 
-      <div className="relative mb-8 aspect-[16/9] overflow-hidden rounded-2xl md:mb-10">
-        {hero ? (
-          <Image
-            src={hero}
-            alt={
-              typeof prop.heroImage === "string"
-                ? prop.title
-                : (prop.heroImage as any)?.alt || prop.title
-            }
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover"
-          />
-        ) : null}
-      </div>
+      {/* Hero image */}
+      {hero ? (
+        <div className="mb-10 overflow-hidden rounded-2xl border border-zinc-200">
+          <div className="relative aspect-[16/9] w-full bg-zinc-100">
+            <Image src={hero} alt={prop.title} fill className="object-cover" />
+          </div>
+        </div>
+      ) : null}
 
+      {/* Content grid */}
       <section className="grid grid-cols-1 gap-10 md:grid-cols-3">
+        {/* Main content */}
         <div className="md:col-span-2">
-          {/* Description — handle Portable Text OR plain string */}
-          {Array.isArray(prop.description) ? (
-            <PT value={prop.description as any[]} />
-          ) : prop.description ? (
-            <p className="text-base leading-7 text-zinc-700">
-              {prop.description}
+          {/* Portable Text description or plain string */}
+          {Array.isArray((prop as any)?.description) ? (
+            <PT value={(prop as any).description as any[]} />
+          ) : (prop as any)?.description ? (
+            <p className="text-base leading-relaxed text-zinc-700">
+              {(prop as any).description}
             </p>
           ) : null}
 
-          {highlights.length ? (
-            <ul className="mt-6 grid list-disc gap-2 pl-5 text-zinc-700">
-              {highlights.map((h, i) => (
-                <li key={i}>{h}</li>
-              ))}
-            </ul>
+          {/* Gallery */}
+          {(prop as any)?.gallery && (prop as any).gallery.length > 0 ? (
+            <div className="mt-8">
+              <Gallery images={(prop as any).gallery} />
+            </div>
           ) : null}
-
-          <div className="mt-10">
-            <h2 className="mb-3 text-lg font-semibold text-zinc-900">
-              Gallery
-            </h2>
-            <Gallery images={prop.gallery} />
-          </div>
         </div>
 
-        <aside className="space-y-6 rounded-2xl border border-zinc-200 p-5">
-          <div>
-            <h3 className="mb-2 text-sm font-semibold text-zinc-900">
-              At a glance
-            </h3>
-            <dl className="grid grid-cols-2 gap-3 text-sm text-zinc-700">
+        {/* Sidebar */}
+        <aside className="space-y-6">
+          {/* Quick specs */}
+          <div className="rounded-2xl border border-zinc-200 p-5">
+            <h2 className="mb-3 text-sm font-medium text-zinc-900">
+              Key details
+            </h2>
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm text-zinc-700">
               {prop.bedrooms ? (
                 <>
                   <dt className="text-zinc-500">Bedrooms</dt>
@@ -176,28 +220,46 @@ export default async function PropertyDetailPage({
               ) : null}
               {prop.areaSqFt ? (
                 <>
-                  <dt className="text-zinc-500">Interior</dt>
+                  <dt className="text-zinc-500">Area</dt>
                   <dd>{formatAreaSqFt(prop.areaSqFt)}</dd>
                 </>
               ) : null}
-              {prop.lotSqFt ? (
+              {(prop as any)?.lotSqFt ? (
                 <>
                   <dt className="text-zinc-500">Lot</dt>
-                  <dd>{prop.lotSqFt.toLocaleString()} sq ft</dd>
+                  <dd>
+                    {Number((prop as any).lotSqFt).toLocaleString()} sq ft
+                  </dd>
                 </>
               ) : null}
-              {prop.amenities?.length ? (
+              {locationText ? (
                 <>
-                  <dt className="text-zinc-500">Amenities</dt>
-                  <dd className="col-span-1 col-start-2">
-                    {prop.amenities.slice(0, 6).join(" • ")}
-                  </dd>
+                  <dt className="text-zinc-500">Location</dt>
+                  <dd>{locationText}</dd>
                 </>
               ) : null}
             </dl>
           </div>
 
-          <div className="rounded-xl bg-zinc-50 p-4">
+          {/* Highlights */}
+          {highlights.length ? (
+            <div className="rounded-2xl border border-zinc-200 p-5">
+              <h2 className="mb-3 text-sm font-medium text-zinc-900">
+                Highlights
+              </h2>
+              <ul className="list-inside list-disc text-sm text-zinc-700">
+                {highlights.map((h, i) => (
+                  <li key={i}>{h}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {/* Contact card */}
+          <div className="rounded-2xl border border-zinc-200 p-5">
+            <h2 className="mb-2 text-sm font-medium text-zinc-900">
+              Interested?
+            </h2>
             <p className="text-sm text-zinc-700">
               Want a private showing or more info?
             </p>

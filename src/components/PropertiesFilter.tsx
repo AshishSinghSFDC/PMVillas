@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import type { Route } from "next";
 import { useCallback, useMemo } from "react";
 
 type Props = {
@@ -24,7 +25,7 @@ export default function PropertiesFilter({ areas, defaults }: Props) {
 
   const current = useMemo(() => {
     const get = (k: string) =>
-      sp.get(k) ?? defaults?.[k as keyof Props["defaults"]] ?? "";
+      sp.get(k) ?? defaults?.[k as keyof NonNullable<Props["defaults"]>] ?? "";
     return {
       q: get("q"),
       status: get("status"),
@@ -37,20 +38,27 @@ export default function PropertiesFilter({ areas, defaults }: Props) {
     };
   }, [sp, defaults]);
 
+  // Typed base route for this filter (component is used on /properties)
+  const BASE_ROUTE: Route = "/properties";
+
   const update = useCallback(
     (key: string, value: string) => {
       const next = new URLSearchParams(sp.toString());
       if (value) next.set(key, value);
       else next.delete(key);
-      // Reset to first page if you later add pagination
+      // Reset to first page if pagination is added later
       next.delete("page");
-      router.replace(`${pathname}?${next.toString()}`);
+
+      // With typedRoutes on, give router.replace a typed URL
+      router.replace(
+        `${BASE_ROUTE}?${next.toString()}` as `${Route}?${string}`
+      );
     },
     [router, pathname, sp]
   );
 
   const clearAll = () => {
-    router.replace(pathname);
+    router.replace(BASE_ROUTE);
   };
 
   return (
@@ -90,7 +98,7 @@ export default function PropertiesFilter({ areas, defaults }: Props) {
 
         <input
           type="number"
-          inputMode="numeric"
+          min={0}
           placeholder="Min price"
           className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
           defaultValue={current.minPrice}
@@ -99,27 +107,13 @@ export default function PropertiesFilter({ areas, defaults }: Props) {
 
         <input
           type="number"
-          inputMode="numeric"
+          min={0}
           placeholder="Max price"
           className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
           defaultValue={current.maxPrice}
           onBlur={(e) => update("maxPrice", e.target.value)}
         />
 
-        <select
-          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
-          defaultValue={current.sort}
-          onChange={(e) => update("sort", e.target.value)}
-        >
-          <option value="newest">Newest</option>
-          <option value="price-asc">Price ↑</option>
-          <option value="price-desc">Price ↓</option>
-          <option value="area-asc">Area ↑</option>
-          <option value="area-desc">Area ↓</option>
-        </select>
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">
         <select
           className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
           defaultValue={current.beds}
@@ -142,6 +136,17 @@ export default function PropertiesFilter({ areas, defaults }: Props) {
           <option value="2">2+ baths</option>
           <option value="3">3+ baths</option>
           <option value="4">4+ baths</option>
+        </select>
+
+        <select
+          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm"
+          defaultValue={current.sort}
+          onChange={(e) => update("sort", e.target.value)}
+        >
+          <option value="newest">Newest</option>
+          <option value="price_asc">Price: Low to High</option>
+          <option value="price_desc">Price: High to Low</option>
+          <option value="area_desc">Area: Large to Small</option>
         </select>
 
         <button

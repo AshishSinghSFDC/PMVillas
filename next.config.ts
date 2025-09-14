@@ -2,23 +2,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  typedRoutes: true, // ← now stable in Next 15.5
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "cdn.sanity.io" },
-      // add other hosts if you use them:
+      // add others if needed
       // { protocol: "https", hostname: "images.unsplash.com" },
-      // { protocol: "https", hostname: "pmvillas.com" },
     ],
   },
-  experimental: {
-    typedRoutes: true,
-  },
-  // ✅ Do not fail the build on ESLint rules (we’ll fix lint later)
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  // (optional) If you ever want to bypass type errors too:
-  // typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
+  // typescript: { ignoreBuildErrors: true }, // optional escape hatch
 };
 
 export default nextConfig;
