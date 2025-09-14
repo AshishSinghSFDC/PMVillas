@@ -1,30 +1,43 @@
-import SiteHeader from "@/components/site-header";
-import SiteFooter from "@/components/site-footer";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+// app/page.tsx
+import type { Metadata } from "next";
+import Hero from "@/components/sections/Hero";
+import FeaturedProperties from "@/components/sections/FeaturedProperties";
+import ValueProps from "@/components/sections/ValueProps";
+import CTABand from "@/components/sections/CTABand";
 
-export default function HomePage() {
+export const revalidate = 30;
+
+export const metadata: Metadata = {
+  title: "PM Villas — Luxury Villas & Estates",
+  description:
+    "Discover curated luxury villas and estates. Handpicked listings, expert guidance, and seamless viewing experience.",
+};
+
+export default async function Page() {
   return (
-    <>
-      <SiteHeader />
-      <main className="container pt-14 pb-10">
-        <h1 className="h-serif text-4xl md:text-5xl leading-tight">
-          Curated Luxury Villas & Residences
-        </h1>
-        <p className="mt-4 max-w-2xl opacity-80">
-          Discover hand-picked properties with stunning views, refined
-          interiors, and prime locations.
-        </p>
-        <div className="mt-8">
-          <Button
-            asChild
-            className="bg-charcoal text-ivory hover:bg-gold hover:text-charcoal transition"
+    <main className="min-h-screen bg-white">
+      <Hero />
+      <ValueProps />
+
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
+        <div className="flex items-end justify-between gap-4">
+          <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+            Featured Properties
+          </h2>
+          <a
+            href="/properties"
+            className="text-sm underline underline-offset-4 hover:opacity-80"
           >
-            <Link href="/properties">Browse Properties</Link>
-          </Button>
+            View all
+          </a>
         </div>
-      </main>
-      <SiteFooter />
-    </>
+
+        <div className="mt-8">
+          <FeaturedProperties />
+        </div>
+      </section>
+
+      <CTABand />
+    </main>
   );
 }

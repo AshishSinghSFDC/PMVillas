@@ -1,22 +1,38 @@
-import type { Metadata } from "next";
+// app/layout.tsx
 import "./globals.css";
-import { Inter, Playfair_Display } from "next/font/google";
+import type { Metadata } from "next";
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
+import { Inter } from "next/font/google";
+
+const inter = Inter({ subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://pmvillas.vercel.app"),
-  title: {
-    default: "PM Villas – Luxury Property Listings",
-    template: "%s | PM Villas",
-  },
+  title: "PM VILLAS — Luxury Villas & Estates",
   description:
-    "Curated luxury villas & residences with refined interiors and prime locations.",
+    "Curated luxury villas & estates. Handpicked listings, white-glove guidance, and a seamless viewing experience.",
+  metadataBase: new URL("https://pmvillas.com"),
+  openGraph: {
+    title: "PM VILLAS — Luxury Villas & Estates",
+    description:
+      "Curated luxury villas & estates. Handpicked listings, white-glove guidance, and a seamless viewing experience.",
+    type: "website",
+  },
+  alternates: { canonical: "/" },
+  icons: {
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png" }],
+    shortcut: ["/favicon.ico"],
+    other: [
+      { rel: "mask-icon", url: "/safari-pinned-tab.svg", color: "#0a0a0a" },
+      { rel: "manifest", url: "/site.webmanifest" },
+    ],
+  },
+  themeColor: "#ffffff",
 };
-
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  variable: "--font-serif",
-});
 
 export default function RootLayout({
   children,
@@ -24,12 +40,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="en"
-      className={`${inter.variable} ${playfair.variable}`}
-      suppressHydrationWarning
-    >
-      <body className="bg-ivory text-charcoal antialiased">{children}</body>
+    // suppressHydrationWarning prevents noisy dev warnings caused by extensions adding attributes (e.g., data-*).
+    <html lang="en" className="scroll-smooth" suppressHydrationWarning>
+      <body
+        className={`${inter.className} bg-white text-neutral-900 antialiased`}
+      >
+        <Header />
+        <main id="main-content">{children}</main>
+        <Footer />
+      </body>
     </html>
   );
 }

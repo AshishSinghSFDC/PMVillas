@@ -1,58 +1,39 @@
-// src/sanity/queries.ts
+import { groq } from "next-sanity";
 
-// Listing grid
-export const PROPERTIES_QUERY = /* groq */ `
-*[_type == "property" && defined(slug.current)]
-| order(isFeatured desc, _createdAt desc)[0...36]{
-  _id,
-  title,
-  "slug": slug.current,
-  status,
-  currency,
-  price,
-  displayPrice,
-  city,
-  country,
-  heroImage
-}
+export const PROPERTY_SLUGS_QUERY = groq`
+  *[_type == "property" && defined(slug.current)]{ "slug": slug.current }
 `;
 
-// Detail page by slug
-export const PROPERTY_BY_SLUG_QUERY = /* groq */ `
-*[_type == "property" && slug.current == $slug][0]{
-  _id,
-  title,
+const BASE_FIELDS = groq`
   "slug": slug.current,
+  title,
+  tagline,
   status,
-  isFeatured,
-  highlightTags,
-  description,
-  heroImage,
-  gallery,
-  videoUrl,
-  tourUrl,
-  floorplans,
-  currency,
   price,
-  displayPrice,
+  currency,
+  location,
   bedrooms,
   bathrooms,
-  areaSqft,
-  lotSizeSqft,
-  propertyType,
-  yearBuilt,
-  hoaFees,
+  areaSqFt,
+  lotSqFt,
+  heroImage,
+  gallery,
+  highlights,
+  description,
   amenities,
-  addressLine1,
-  addressLine2,
-  city,
-  state,
-  postalCode,
-  country,
-  location,
-  mapUrl,
-  seoTitle,
-  seoDescription,
-  seoImage
-}
+  "updatedAt": coalesce(updatedAt, _updatedAt),
+  seo
+`;
+
+export const PROPERTIES_LIST_QUERY = groq`
+  *[_type == "property" && defined(slug.current)]
+  | order(coalesce(updatedAt, _updatedAt) desc)[0...100]{
+    ${BASE_FIELDS}
+  }
+`;
+
+export const PROPERTY_BY_SLUG_QUERY = groq`
+  *[_type == "property" && slug.current == $slug][0]{
+    ${BASE_FIELDS}
+  }
 `;

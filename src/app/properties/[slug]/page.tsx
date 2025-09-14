@@ -1,110 +1,54 @@
-import { notFound } from "next/navigation";
 import Image from "next/image";
-import SiteHeader from "@/components/site-header";
-import SiteFooter from "@/components/site-footer";
-import RichText from "@/components/portable-text";
-import Gallery from "@/components/property/gallery";
-import ContactForm from "@/components/contact-form";
-import { sanityClient } from "@/sanity/client";
-import { PROPERTY_BY_SLUG_QUERY } from "@/sanity/queries";
-import { urlFor } from "@/sanity/image";
-import { unstable_cache } from "next/cache";
-import type { Metadata } from "next";
-import type { SanityImageSource } from "@sanity/image-url/lib/types/types";
-import type { PortableTextBlock } from "sanity";
-import { Badge } from "@/components/ui/badge";
+import { notFound } from "next/navigation";
+import Gallery from "../../../components/Gallery";
+import PT from "../../../components/portable-text";
+import { sanityClient } from "../../../sanity/lib/client";
+import {
+  PROPERTY_BY_SLUG_QUERY,
+  PROPERTY_SLUGS_QUERY,
+} from "../../../sanity/queries";
+import type { Property } from "../../../types/property";
+import { formatAreaSqFt, formatPrice } from "../../../lib/format";
+import { toImageSrc } from "../../../sanity/lib/image";
 
-type SanityAssetRef = { _ref: string; _type: "reference" };
+export const revalidate = 60;
 
-type Property = {
-  _id: string;
-  title: string;
-  slug: string;
-  status?: string;
-  isFeatured?: boolean;
-  highlightTags?: string[];
-  description?: PortableTextBlock[];
-  heroImage?: SanityImageSource;
-  gallery?: SanityImageSource[];
-  videoUrl?: string | null;
-  tourUrl?: string | null;
-  floorplans?: Array<{ asset?: SanityAssetRef }>;
-  currency?: string;
-  price?: number;
-  displayPrice?: string;
-  bedrooms?: number;
-  bathrooms?: number;
-  areaSqft?: number;
-  lotSizeSqft?: number;
-  propertyType?: string;
-  yearBuilt?: number;
-  hoaFees?: number;
-  amenities?: string[];
-  addressLine1?: string;
-  addressLine2?: string;
-  city?: string;
-  state?: string;
-  postalCode?: string;
-  country?: string;
-  location?: { lat: number; lng: number };
-  mapUrl?: string;
-  seoTitle?: string;
-  seoDescription?: string;
-  seoImage?: SanityImageSource;
-};
+type RouteParams = Promise<{ slug: string }>;
 
-// cache + tag per slug so webhook can surgically refresh this page
-async function fetchProperty(slug: string): Promise<Property | null> {
-  const get = unstable_cache(
-    async () => sanityClient.fetch(PROPERTY_BY_SLUG_QUERY, { slug }),
-    ["property", slug],
-    { tags: ["properties", `property:${slug}`] }
-  );
-  return get();
+export async function generateStaticParams() {
+  const slugs: Array<{ slug: string }> =
+    await sanityClient.fetch(PROPERTY_SLUGS_QUERY);
+  return slugs.map((s) => ({ slug: s.slug }));
 }
 
-function formatPrice(p: Property) {
-  if (p.displayPrice) return p.displayPrice;
-  if (typeof p.price === "number") {
-    const symbol =
-      p.currency === "INR"
-        ? "₹"
-        : p.currency === "USD"
-          ? "$"
-          : p.currency === "MXN"
-            ? "MX$"
-            : "";
-    return `${symbol}${p.price.toLocaleString()}`;
-  }
-  return "Price on request";
-}
-
-// Next 15: params can be a Promise—await it
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: RouteParams }) {
   const { slug } = await params;
-  const p = await fetchProperty(slug);
-  if (!p) return {};
-  const title = p.seoTitle || `${p.title} — PM Villas`;
+  const prop = await sanityClient.fetch<Property>(
+    PROPERTY_BY_SLUG_QUERY,
+    { slug },
+    { next: { revalidate } }
+  );
+  if (!prop) return {};
+  const title = `${prop.title} | ${formatPrice(prop.price, prop.currency)}`;
   const description =
-    p.seoDescription ||
-    `${p.title} in ${[p.city, p.country].filter(Boolean).join(", ")}`;
-  const og = p.seoImage || p.heroImage;
-  const ogUrl = og
-    ? urlFor(og).width(1200).height(630).fit("crop").url()
-    : undefined;
-
+    prop.seo?.description ||
+    (typeof prop.description === "string" ? prop.description : prop.tagline) ||
+    prop.title;
+  const ogImage = toImageSrc(prop.heroImage, 1200, 630);
   return {
     title,
     description,
     openGraph: {
       title,
       description,
-      images: ogUrl ? [{ url: ogUrl, width: 1200, height: 630 }] : [],
+      images: ogImage ? [{ url: ogImage }] : [],
       type: "article",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ogImage ? [ogImage] : [],
     },
   };
 }
@@ -112,187 +56,160 @@ export async function generateMetadata({
 export default async function PropertyDetailPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: RouteParams;
 }) {
   const { slug } = await params;
-  const p = await fetchProperty(slug);
-  if (!p) notFound();
+  const prop = await sanityClient.fetch<Property>(
+    PROPERTY_BY_SLUG_QUERY,
+    { slug },
+    { next: { revalidate, tags: ["properties", `property:${slug}`] } }
+  );
+  if (!prop) return notFound();
 
-  const heroUrl = p.heroImage
-    ? urlFor(p.heroImage).width(1800).height(1200).fit("crop").url()
-    : "/placeholder.jpg";
-  const locationStr = [p.city, p.state, p.country].filter(Boolean).join(", ");
+  const hero = toImageSrc(prop.heroImage, 1920, 1080);
+  const highlights: string[] = prop.highlights ?? [];
 
   return (
-    <>
-      <SiteHeader />
+    <main className="mx-auto max-w-6xl px-4 py-8 md:py-12">
+      <div className="mb-8 flex flex-col gap-4 md:mb-10 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
+            {prop.title}
+          </h1>
+          <p className="mt-2 text-sm text-zinc-600">{prop.tagline}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-zinc-700">
+            <span className="rounded-full bg-zinc-100 px-3 py-1">
+              {prop.status}
+            </span>
+            <span className="rounded-full bg-zinc-100 px-3 py-1">
+              {prop.bedrooms ? `${prop.bedrooms} bd` : ""}
+              {prop.bedrooms && prop.bathrooms ? " • " : ""}
+              {prop.bathrooms ? `${prop.bathrooms} ba` : ""}
+            </span>
+            {prop.areaSqFt ? (
+              <span className="rounded-full bg-zinc-100 px-3 py-1">
+                {formatAreaSqFt(prop.areaSqFt)}
+              </span>
+            ) : null}
+            {prop.location?.area ? (
+              <span className="rounded-full bg-zinc-100 px-3 py-1">
+                📍 {prop.location.area}
+              </span>
+            ) : null}
+          </div>
+        </div>
 
-      {/* Hero */}
-      <section className="relative aspect-[16/9] w-full">
-        <Image
-          src={heroUrl}
-          alt={p.title}
-          fill
-          className="object-cover"
-          priority
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0">
-          <div className="container py-6 text-ivory">
-            <div className="flex flex-wrap items-center gap-2 mb-2">
-              {p.status && (
-                <Badge className="bg-gold text-charcoal">
-                  {p.status.replace("-", " ")}
-                </Badge>
-              )}
-              {p.isFeatured && <Badge variant="secondary">Featured</Badge>}
-              {p.highlightTags?.map((t) => (
-                <Badge
-                  key={t}
-                  variant="outline"
-                  className="bg-white/20 border-white/30 text-white"
-                >
-                  {t}
-                </Badge>
+        <div className="text-right">
+          <div className="text-2xl font-semibold text-zinc-900 md:text-3xl">
+            {formatPrice(prop.price, prop.currency)}
+          </div>
+          <a
+            href="/contact"
+            className="mt-3 inline-block rounded-xl border border-zinc-200 bg-black px-5 py-2 text-sm font-medium text-white transition hover:opacity-90"
+          >
+            Request details
+          </a>
+        </div>
+      </div>
+
+      <div className="relative mb-8 aspect-[16/9] overflow-hidden rounded-2xl md:mb-10">
+        {hero ? (
+          <Image
+            src={hero}
+            alt={
+              typeof prop.heroImage === "string"
+                ? prop.title
+                : (prop.heroImage as any)?.alt || prop.title
+            }
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover"
+          />
+        ) : null}
+      </div>
+
+      <section className="grid grid-cols-1 gap-10 md:grid-cols-3">
+        <div className="md:col-span-2">
+          {/* Description — handle Portable Text OR plain string */}
+          {Array.isArray(prop.description) ? (
+            <PT value={prop.description as any[]} />
+          ) : prop.description ? (
+            <p className="text-base leading-7 text-zinc-700">
+              {prop.description}
+            </p>
+          ) : null}
+
+          {highlights.length ? (
+            <ul className="mt-6 grid list-disc gap-2 pl-5 text-zinc-700">
+              {highlights.map((h, i) => (
+                <li key={i}>{h}</li>
               ))}
-            </div>
-            <h1 className="h-serif text-3xl md:text-5xl">{p.title}</h1>
-            <p className="opacity-90">{locationStr}</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Main */}
-      <main className="container py-10 grid gap-10 lg:grid-cols-3">
-        {/* Left: description + gallery */}
-        <div className="lg:col-span-2 space-y-8">
-          {/* Quick facts */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <Fact label="Price" value={formatPrice(p)} />
-            <Fact label="Beds" value={p.bedrooms ?? "-"} />
-            <Fact label="Baths" value={p.bathrooms ?? "-"} />
-            <Fact
-              label="Area (sq ft)"
-              value={p.areaSqft?.toLocaleString() ?? "-"}
-            />
-          </div>
-
-          {/* Description */}
-          {p.description && (
-            <section>
-              <h2 className="h-serif text-2xl mb-3">About this property</h2>
-              <RichText value={p.description} />
-            </section>
-          )}
-
-          {/* Gallery */}
-          {p.gallery && p.gallery.length > 0 && (
-            <section>
-              <h2 className="h-serif text-2xl mb-3">Gallery</h2>
-              <Gallery images={p.gallery as SanityImageSource[]} />
-            </section>
-          )}
-
-          {/* Map */}
-          {(p.mapUrl || p.location) && (
-            <section>
-              <h2 className="h-serif text-2xl mb-3">Location</h2>
-              <div className="rounded-xl overflow-hidden border">
-                <iframe
-                  title="Map"
-                  className="w-full h-[360px]"
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  src={
-                    p.mapUrl
-                      ? p.mapUrl
-                      : `https://www.google.com/maps?q=${p.location?.lat},${p.location?.lng}&z=14&output=embed`
-                  }
-                />
-              </div>
-              <div className="mt-2 text-sm opacity-80">
-                {[p.addressLine1, p.city, p.state, p.postalCode, p.country]
-                  .filter(Boolean)
-                  .join(", ")}
-              </div>
-            </section>
-          )}
-        </div>
-
-        {/* Right: specs + contact form */}
-        <aside className="lg:col-span-1 space-y-8">
-          <section className="rounded-2xl border p-5 bg-white/60">
-            <h3 className="h-serif text-xl mb-4">Key Details</h3>
-            <ul className="text-sm grid grid-cols-1 gap-2">
-              <Li label="Property Type" value={p.propertyType ?? "-"} />
-              <Li label="Year Built" value={p.yearBuilt ?? "-"} />
-              <Li
-                label="Lot Size (sq ft)"
-                value={p.lotSizeSqft?.toLocaleString() ?? "-"}
-              />
-              <Li
-                label="HOA / Fees"
-                value={p.hoaFees ? `$${p.hoaFees.toLocaleString()}` : "-"}
-              />
-              <Li
-                label="Amenities"
-                value={(p.amenities || []).join(", ") || "-"}
-              />
             </ul>
-          </section>
+          ) : null}
 
-          <section className="rounded-2xl border p-5 bg-white/60">
-            <h3 className="h-serif text-xl mb-4">Request more info</h3>
-            <ContactForm property={p.title} />
-          </section>
+          <div className="mt-10">
+            <h2 className="mb-3 text-lg font-semibold text-zinc-900">
+              Gallery
+            </h2>
+            <Gallery images={prop.gallery} />
+          </div>
+        </div>
 
-          {(p.videoUrl || p.tourUrl) && (
-            <section className="rounded-2xl border p-5 bg-white/60">
-              <h3 className="h-serif text-xl mb-4">Tours</h3>
-              {p.videoUrl && (
-                <a
-                  className="block text-gold underline"
-                  href={p.videoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Watch Video Tour
-                </a>
-              )}
-              {p.tourUrl && (
-                <a
-                  className="block text-gold underline mt-2"
-                  href={p.tourUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Open 3D/Matterport
-                </a>
-              )}
-            </section>
-          )}
+        <aside className="space-y-6 rounded-2xl border border-zinc-200 p-5">
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-zinc-900">
+              At a glance
+            </h3>
+            <dl className="grid grid-cols-2 gap-3 text-sm text-zinc-700">
+              {prop.bedrooms ? (
+                <>
+                  <dt className="text-zinc-500">Bedrooms</dt>
+                  <dd>{prop.bedrooms}</dd>
+                </>
+              ) : null}
+              {prop.bathrooms ? (
+                <>
+                  <dt className="text-zinc-500">Bathrooms</dt>
+                  <dd>{prop.bathrooms}</dd>
+                </>
+              ) : null}
+              {prop.areaSqFt ? (
+                <>
+                  <dt className="text-zinc-500">Interior</dt>
+                  <dd>{formatAreaSqFt(prop.areaSqFt)}</dd>
+                </>
+              ) : null}
+              {prop.lotSqFt ? (
+                <>
+                  <dt className="text-zinc-500">Lot</dt>
+                  <dd>{prop.lotSqFt.toLocaleString()} sq ft</dd>
+                </>
+              ) : null}
+              {prop.amenities?.length ? (
+                <>
+                  <dt className="text-zinc-500">Amenities</dt>
+                  <dd className="col-span-1 col-start-2">
+                    {prop.amenities.slice(0, 6).join(" • ")}
+                  </dd>
+                </>
+              ) : null}
+            </dl>
+          </div>
+
+          <div className="rounded-xl bg-zinc-50 p-4">
+            <p className="text-sm text-zinc-700">
+              Want a private showing or more info?
+            </p>
+            <a
+              href="/contact"
+              className="mt-3 inline-block w-full rounded-lg bg-black px-4 py-2 text-center text-sm font-medium text-white"
+            >
+              Contact sales
+            </a>
+          </div>
         </aside>
-      </main>
-
-      <SiteFooter />
-    </>
-  );
-}
-
-function Fact({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="rounded-xl border p-4 bg-white/60">
-      <div className="text-xs uppercase tracking-wide opacity-70">{label}</div>
-      <div className="text-lg font-medium">{value}</div>
-    </div>
-  );
-}
-
-function Li({ label, value }: { label: string; value: string | number }) {
-  return (
-    <li className="flex justify-between gap-3">
-      <span className="opacity-70">{label}</span>
-      <span className="font-medium text-right">{value}</span>
-    </li>
+      </section>
+    </main>
   );
 }

@@ -1,91 +1,88 @@
-import SiteHeader from "@/components/site-header";
-import SiteFooter from "@/components/site-footer";
-import PropertyCard from "@/components/property-card";
-import { sanityClient } from "@/sanity/client";
-import { PROPERTIES_QUERY } from "@/sanity/queries";
-import { urlFor } from "@/sanity/image";
-import { unstable_cache } from "next/cache";
-import type { SanityImageSource } from "@sanity/image-url/lib/types/types";
+// app/properties/page.tsx
+import type { Metadata } from "next";
+import { client } from "@/lib/sanity.client";
+import PropertyCard from "@/components/PropertyCard";
+import type { Property } from "@/types/property";
 
-type Property = {
-  _id: string;
-  title: string;
-  slug: string;
-  status?: string;
-  currency?: string;
-  price?: number;
-  displayPrice?: string;
-  city?: string;
-  country?: string;
-  heroImage?: SanityImageSource;
+export const revalidate = 60;
+
+export const metadata: Metadata = {
+  title: "Properties | PM VILLAS",
+  description: "Browse luxury villas and estates curated by PM VILLAS.",
 };
 
-const getProperties = unstable_cache(
-  async (): Promise<Property[]> => {
-    return sanityClient.fetch(PROPERTIES_QUERY);
-  },
-  ["properties-list"],
-  { tags: ["properties"] }
-);
+const QUERY = `
+*[_type == "property" && defined(slug.current)] 
+| order(_createdAt desc)[0...24]{
+  _id,
+  title,
+  "slug": slug.current,
+  price,
+  bedrooms,
+  bathrooms,
+  areaSqFt,
+  location,
+  "locationLabel": coalesce(locationLabel, locationName, address, city, location.city, location.name),
+  "heroUrl": coalesce(
+    coverImage.asset->url,
+    mainImage.asset->url,
+    heroImage.asset->url,
+    featuredImage.asset->url,
+    primaryImage.asset->url,
+    image.asset->url,
+    images[0].asset->url,
+    gallery[0].asset->url,
+    photos[0].asset->url,
+    pictures[0].asset->url,
+    media[0].asset->url,
+    images[0].image.asset->url,
+    gallery[0].image.asset->url,
+    photos[0].image.asset->url,
+    pictures[0].image.asset->url,
+    media[0].image.asset->url
+  )
+}
+`;
 
-function formatPrice(p: Property) {
-  if (p.displayPrice) return p.displayPrice;
-  if (typeof p.price === "number") {
-    const symbol =
-      p.currency === "INR"
-        ? "₹"
-        : p.currency === "USD"
-          ? "$"
-          : p.currency === "MXN"
-            ? "MX$"
-            : "";
-    return `${symbol}${p.price.toLocaleString()}`;
+async function getProperties(): Promise<Property[]> {
+  try {
+    const data = await client.fetch(QUERY, {}, { cache: "force-cache" });
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
   }
-  return "Price on request";
 }
 
 export default async function PropertiesPage() {
   const items = await getProperties();
-  const hasItems = items && items.length > 0;
 
   return (
-    <>
-      <SiteHeader />
-      <main className="container pt-12 pb-20">
-        <h1 className="h-serif text-3xl md:text-4xl mb-8">
-          Featured Properties
-        </h1>
+    <main className="min-h-screen bg-white">
+      <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+        <div className="flex items-end justify-between gap-4">
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+            Properties
+          </h1>
+          <span className="text-sm text-neutral-500">
+            {items.length} listing{items.length === 1 ? "" : "s"}
+          </span>
+        </div>
 
-        {hasItems ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {items.map((p) => (
-              <PropertyCard
-                key={p._id}
-                slug={p.slug}
-                title={p.title}
-                location={[p.city, p.country].filter(Boolean).join(", ")}
-                price={formatPrice(p)}
-                image={
-                  p.heroImage
-                    ? urlFor(p.heroImage)
-                        .width(1200)
-                        .height(900)
-                        .fit("crop")
-                        .url()
-                    : "/placeholder.jpg"
-                }
-              />
-            ))}
+        {items.length === 0 ? (
+          <div className="mt-8 rounded-2xl border border-dashed border-neutral-200 p-8 text-center text-neutral-500">
+            No properties yet. Add listings in Sanity to populate this page.
           </div>
         ) : (
-          <div className="rounded-xl border bg-white/60 p-6 text-sm opacity-80">
-            No properties published yet. Add one in{" "}
-            <span className="font-medium">/studio</span> and publish to see it
-            here.
+          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {items.map((p) => {
+              const img = p.heroUrl
+                ? `${p.heroUrl}?w=800&h=600&fit=crop&auto=format`
+                : undefined;
+              return <PropertyCard key={p._id} property={p} imageUrl={img} />;
+            })}
           </div>
         )}
-      </main>
-      <SiteFooter />
-    </>
+      </section>
+    </main>
   );
 }
