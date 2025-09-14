@@ -29,7 +29,11 @@ export async function generateMetadata({ params }: { params: RouteParams }) {
     { next: { revalidate } }
   );
   if (!prop) return {};
-  const title = `${prop.title} | ${formatPrice(prop.price, prop.currency)}`;
+  const price =
+    prop.price && prop.currency
+      ? formatPrice(prop.price, prop.currency)
+      : undefined;
+  const title = price ? `${prop.title} | ${price}` : prop.title;
   const description =
     prop.seo?.description ||
     (typeof prop.description === "string" ? prop.description : prop.tagline) ||
@@ -66,6 +70,10 @@ export default async function PropertyDetailPage({
   );
   if (!prop) return notFound();
 
+  const price =
+    prop.price && prop.currency
+      ? formatPrice(prop.price, prop.currency)
+      : undefined;
   const hero = toImageSrc(prop.heroImage, 1920, 1080);
   const highlights: string[] = prop.highlights ?? [];
 
@@ -100,9 +108,11 @@ export default async function PropertyDetailPage({
         </div>
 
         <div className="text-right">
-          <div className="text-2xl font-semibold text-zinc-900 md:text-3xl">
-            {formatPrice(prop.price, prop.currency)}
-          </div>
+          {price ? (
+            <div className="text-2xl font-semibold text-zinc-900 md:text-3xl">
+              {price}
+            </div>
+          ) : null}
           <a
             href="/contact"
             className="mt-3 inline-block rounded-xl border border-zinc-200 bg-black px-5 py-2 text-sm font-medium text-white transition hover:opacity-90"

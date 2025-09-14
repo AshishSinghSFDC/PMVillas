@@ -3,9 +3,6 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
-import { Inter } from "next/font/google";
-
-const inter = Inter({ subsets: ["latin"], display: "swap" });
 
 export const metadata: Metadata = {
   title: "PM VILLAS — Luxury Villas & Estates",
@@ -42,9 +39,7 @@ export default function RootLayout({
   return (
     // suppressHydrationWarning prevents noisy dev warnings caused by extensions adding attributes (e.g., data-*).
     <html lang="en" className="scroll-smooth" suppressHydrationWarning>
-      <body
-        className={`${inter.className} bg-white text-neutral-900 antialiased`}
-      >
+      <body className="bg-white text-neutral-900 antialiased font-sans">
         <Header />
         <main id="main-content">{children}</main>
         <Footer />
