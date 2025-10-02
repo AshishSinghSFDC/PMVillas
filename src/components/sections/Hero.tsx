@@ -22,7 +22,13 @@ export default function Hero() {
             Curated Luxury Listings
           </div>
 
-          <h1 className="mt-6 text-3xl sm:text-5xl font-semibold leading-tight tracking-tight">
+          <p className="mt-6 text-base sm:text-lg font-medium text-neutral-700 motion-safe:animate-fade-up">
+            <span className="bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-600 bg-clip-text text-transparent motion-safe:animate-gradient">
+              Welcome to PM Villas
+            </span>
+          </p>
+
+          <h1 className="mt-4 text-3xl sm:text-5xl font-semibold leading-tight tracking-tight">
             Find your next
             <span className="block text-neutral-700">statement address.</span>
           </h1>
